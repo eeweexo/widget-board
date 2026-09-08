@@ -1,217 +1,963 @@
-#project1 wiget board and daily planner project for snowglobe
-import tkinter as tk
-from tkinter import ttk, colorchooser, simpledialog
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Widget Board — Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-class DraggableWidget(tk.frame):
-     """Base class for building custom drag and drop dashboard frames."""
-     
-     def __init__(self,parent,title="widget" ,bg_color="2e3138",**kwargs):
-                 super().__init__(parent,bg=bg_color,bd=2,relief="groove",**kwargs)
+        body {
+            font-family: Arial, sans-serif;
+            background: #121217;
+            color: #f8f8f2;
+            overflow: hidden;
+            height: 100vh;
+        }
 
-self.drag_handle = tk.Frame(self,bg="1e2022",height=25)
-self.drag_handle.pack(fill="x",side="top")
-self.drag_handle.pack_propagate(False)
+        #dashboard {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
 
-self.title_label =  tk.Label( self.drag_handle,text=title,fg="ffffff",bg="1e2022",font="Arial" 9 "bold")
+        .help-text {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            color: #d0d0d0;
+            font-size: 12px;
+            z-index: 1000;
+            background: rgba(18, 18, 23, 0.9);
+            padding: 10px 15px;
+            border-radius: 5px;
+            max-width: 500px;
+        }
 
-self.title_label.pack(side="left",padx=5)
+        .draggable-widget {
+            position: absolute;
+            background: #2e3138;
+            border: 2px groove #444;
+            border-radius: 4px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+            user-select: none;
+            display: flex;
+            flex-direction: column;
+            touch-action: none;
+        }
 
-self.drag_handle.bind("<Button-1>", self.start_drag)
-self.drag_handle.bind("<B1-Motion>", self.on_drag)
-self.title_label.bind("<Button-1>", self.start_drag)
-self.title_label.bind("<B1-Motion>", self.on_drag)
+        .widget-header {
+            background: #1e2022;
+            color: #fff;
+            padding: 6px;
+            font-weight: bold;
+            font-size: 11px;
+            cursor: grab;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #333;
+            min-height: 25px;
+        }
 
-def start_drag(self, event):
-        self._drag_start_x = event.x
-        self._drag_start_y = event.y
-        self.lift()
+        .widget-header:active {
+            cursor: grabbing;
+        }
 
-def on_drag(self, event):
-        x = self.winfo_x() - self._drag_start_x + event.x
-        y = self.winfo_y() - self._drag_start_y + event.y
-        self.place(x=x, y=y)
-        
-class StickyNote(DraggableWidget):
-    """A highly customizable digital sticky note with runtime text and color changes."""
+        .widget-header.locked {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
 
-    def __init__(self, parent, text="Double-click to edit note...", x=50, y=50):
-        super().__init__(parent, title="📌 Sticky Note", bg_color="#fff275")
-        self.place(x=x, y=y, width=200, height=200)
+        .widget-title {
+            flex: 1;
+            padding: 0 5px;
+        }
 
-    
-        self.color_btn = tk.Frame(self.drag_handle, bg="#e0d030", width=15, height=15)
-        self.color_btn.pack(side="right", padx=5, pady=5)
-        self.color_btn.bind("<Button-1>", self.change_color)
-        
-self.text_label = tk.Label(self,text=text,bg="#fff275",fg="#222222",wraplength=180,justify="left",font=("Comic Sans MS", 11),anchor="nw",
-        )
-self.text_label.pack(fill="both", expand=True, padx=8, pady=8)
-self.text_label.bind("<Double-Button-1>", self.edit_text)
+        .color-btn {
+            width: 18px;
+            height: 18px;
+            border: 1px solid #666;
+            border-radius: 2px;
+            cursor: pointer;
+            margin-right: 6px;
+        }
 
-def edit_text(self, event):
-    new_text = simpledialog.askstring("Edit Note", "Enter note text:", initialvalue=self_text_label["text"])
-    if new_text:
-     self.text_label.config(text=new_text)
+        .widget-content {
+            flex: 1;
+            overflow: auto;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+        }
 
-    def change_color(self, event):
-        color = colorchooser.askcolor(title="Pick Sticky Note Color")[1]
-        if color:
-            self.config(bg=color)
-            self.text_label.config(bg=color)
+        .resize-handle {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: #1e2022;
+            bottom: 0;
+            right: 0;
+            cursor: nwse-resize;
+            border-top-left-radius: 3px;
+        }
 
+        /* Context Menu */
+        .context-menu {
+            position: fixed;
+            background: #282a36;
+            border: 1px solid #444;
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+            z-index: 2000;
+            min-width: 150px;
+        }
 
-class PlaylistWidget(DraggableWidget):
-    """A visual playlist frame mocking up music stream deck configurations."""
+        .context-menu-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 13px;
+            color: #f8f8f2;
+            border-bottom: 1px solid #44475a;
+        }
 
-    def __init__(self, parent, x=50, y=280):
-        super().__init__(parent, title="🎵 Playlist Controller", bg_color="#181818")
-        self.place(x=x, y=y, width=280, height=150)
+        .context-menu-item:last-child {
+            border-bottom: none;
+        }
 
-        # Simulated Playlist Styling
-        track_info = tk.Label(self,text="Lo-Fi Beats For Coding 🎧",fg="#1db954",bg="#181818",font=("Arial", 11, "bold"),
-        )
-        track_info.pack(pady=10)
+        .context-menu-item:hover {
+            background: #44475a;
+        }
 
-        sub_info = tk.Label(self,text="Track: Neon Nights\nStatus: Connected Placeholder",fg="#aaaaaa",bg="#181818",font=("Arial", 9))
-        sub_info.pack(pady=5)
+        .context-menu-separator {
+            height: 1px;
+            background: #44475a;
+            margin: 0;
+        }
 
-        ctrl_frame = tk.Frame(self, bg="#181818")
-        ctrl_frame.pack(pady=10)
+        /* Sticky Note */
+        .sticky-note {
+            background: #fff275 !important;
+        }
 
-        for btn_text in ["⏮", "▶", "⏸", "⏭"]:
-            btn = tk.Button(ctrl_frame,text=btn_text,fg="#ffffff",bg="#333333",activebackground="#555555",activeforeground="#ffffff",relief="flat",width=4,
-            )
-            btn.pack(side="left", padx=4)
+        .sticky-note .widget-header {
+            background: #e0d030;
+            color: #222;
+        }
 
+        .sticky-note .widget-content {
+            background: #fff275 !important;
+            color: #222222;
+            font-family: "Comic Sans MS", cursive;
+            font-size: 11px;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
 
-class PixelPlantTrackerWidget(DraggableWidget):
-    """A gamified engine rendering procedural pixel art representing real-time goal metrics."""
+        .sticky-note .widget-title {
+            color: #222;
+        }
 
-    def __init__(self, parent, x=300, y=50):
-        super().__init__(
-            parent, title="🌱 Habit Matrix & Evolution Engine", bg_color="#282a36"
-        )
-        self.place(x=x, y=y, width=450, height=380)
+        .color-palette {
+            position: fixed;
+            background: #1e1f29;
+            border: 1px solid #666;
+            padding: 8px;
+            border-radius: 4px;
+            z-index: 2000;
+            display: flex;
+            gap: 4px;
+        }
 
-        self.xp = 0
-        self.habits = ["Complete Daily Code Focus", "Drink 3L Water", "Gym Session"]
+        .palette-color {
+            width: 30px;
+            height: 30px;
+            border: 1px solid #999;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
 
+        .palette-color:hover {
+            transform: scale(1.1);
+        }
 
-        self.left_frame = tk.Frame(self, bg="#282a36")
-        self.left_frame.pack(side="left", fill="both", expand=True, padx=10, pady=10)
+        /* Playlist Widget */
+        .playlist-widget {
+            background: #181818 !important;
+        }
 
-        self.canvas_frame = tk.Frame(self, bg="#282a36")
-        self.canvas_frame.pack(side="right", padx=10, pady=10)
+        .playlist-widget .widget-content {
+            background: #181818 !important;
+            display: flex;
+            gap: 8px;
+        }
 
-        # Pixel Engine Canvas setup
-        self.canvas = tk.Canvas(
-            self.canvas_frame, width=160, height=180, bg="#1e1f29", bd=0, highlightthickness=0
-        )
-        self.canvas.pack()
+        .playlist-header {
+            color: #1db954;
+            font-weight: bold;
+            font-size: 11px;
+            width: 100%;
+        }
 
-        self.status_lbl = tk.Label(self.canvas_frame,text="Level 1: Tiny Sprout",fg="#50fa7b",bg="#282a36",font=("Arial", 10, "bold"),
-        )
-        self.status_lbl.pack(pady=5)
+        .playlist-status {
+            color: #aaa;
+            font-size: 9px;
+            width: 100%;
+            margin-bottom: 6px;
+        }
 
-        self.xp_lbl = tk.Label(self.canvas_frame,text="Growth XP: 0",fg="#ff79c6",bg="#282a36",font=("Arial", 9),
-        )
-        self.xp_lbl.pack()
+        .playlist-list {
+            flex: 1;
+            background: #0f0f0f;
+            border: 1px solid #333;
+            border-radius: 3px;
+            overflow-y: auto;
+            font-size: 10px;
+        }
 
-        self.build_habit_list()
-        self.render_pixel_plant()
+        .playlist-item {
+            padding: 4px 6px;
+            border-bottom: 1px solid #222;
+            cursor: pointer;
+            color: #fff;
+        }
 
-    def build_habit_list(self):
-        title = tk.Label(self.left_frame,text="Daily Goals Checklist",fg="#f8f8f2",bg="#282a36",font=("Arial", 11, "bold"),
-        )
-        title.pack(anchor="w", pady=(0, 10))
+        .playlist-item:last-child {
+            border-bottom: none;
+        }
 
-        for habit in self.habits:
-            f = tk.Frame(self.left_frame, bg="#282a36")
-            f.pack(fill="x", pady=4)
+        .playlist-item.selected {
+            background: #333;
+        }
 
-            var = tk.BooleanVar()
-            cb = tk.Checkbutton(f,text=habit,variable=var,fg="#f8f8f2",bg="#282a36",selectcolor="#1e1f29",
-                activebackground="#282a36",
-                activeforeground="#f8f8f2",
-                font=("Arial", 10),
-                command=lambda v=var: self.on_habit_toggle(v),
-            )
-            cb.pack(side="left")
+        .playlist-item:hover {
+            background: #292929;
+        }
 
-    def on_habit_toggle(self, variable):
-        if variable.get():
-            self.xp += 25
-        else:
-            self.xp = max(0, self.xp - 25)
+        .playlist-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            justify-content: flex-start;
+        }
 
-        self.xp_lbl.config(text=f"Growth XP: {self.xp}")
-        self.render_pixel_plant()
+        .playlist-buttons {
+            display: flex;
+            gap: 4px;
+        }
 
-    def draw_pixel(self, x, y, size, color):
-        """Draws a grid coordinate pixel element safely on the UI resolution system."""
-        self.canvas.create_rectangle(x * size,y * size,(x + 1) * size,(y + 1) * size,fill=color,outline=color,
-        )
+        .playlist-btn {
+            background: #333;
+            color: #fff;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 2px;
+            cursor: pointer;
+            font-size: 10px;
+            flex: 1;
+        }
 
-    def render_pixel_plant(self):
-        """Draws the pixel art plant dynamically based on the current XP tier."""
-        self.canvas.delete("all")
-        p_size = 8 
+        .playlist-btn:hover {
+            background: #555;
+        }
 
+        .playlist-btn:active {
+            background: #222;
+        }
 
-        pot_pixels = [
-            (8, 17), (9, 17), (10, 17), (11, 17),
-            (7, 16), (8, 16), (9, 16), (10, 16), (11, 16), (12, 16),
-            (7, 15), (8, 15), (9, 15), (10, 15), (11, 15), (12, 15),
-            (6, 14), (7, 14), (8, 14), (9, 14), (10, 14), (11, 14), (12, 14), (13, 14)
-        ]
-        for px, py in pot_pixels:
-            self.draw_pixel(px, py, p_size, "#ff5555")
+        .volume-container {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
 
-    
-        if self.xp == 0:
-            self.status_lbl.config(text="Stage 0: Planted Seed")
-            self.draw_pixel(9, 13, p_size, "#ffb86c")
-        elif self.xp <= 25:
-            self.status_lbl.config(text="Stage 1: Breaking Soil")
-            stem = [(9, 13), (9, 12)]
-            for px, py in stem:
-                self.draw_pixel(px, py, p_size, "#50fa7b")
-        elif self.xp <= 50:
-            self.status_lbl.config(text="Stage 2: Young Sprout")
-            stem = [(9, 13), (9, 12), (9, 11), (8, 11), (10, 12)]
-            for px, py in stem:
-                self.draw_pixel(px, py, p_size, "#50fa7b")
-        else:
-            self.status_lbl.config(text="Stage 3: Full Blossom Flower!")
-            
-            stem = [(9, 13), (9, 12), (9, 11), (9, 10), (8, 11), (10, 10)]
-            for px, py in stem:
-                self.draw_pixel(px, py, p_size, "#50fa7b")
-            
-            petals = [(9, 9), (9, 7), (8, 8), (10, 8)]
-            for px, py in petals:
-                self.draw_pixel(px, py, p_size, "#ff79c6")
-            
-            self.draw_pixel(9, 8, p_size, "#f1fa8c")
+        .volume-label {
+            color: #ddd;
+            font-size: 9px;
+        }
 
+        .volume-slider {
+            width: 100%;
+            height: 6px;
+            accent-color: #1db954;
+        }
 
-class ProductivityDashboardApp:
+        .shuffle-check {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: #ddd;
+            font-size: 10px;
+            cursor: pointer;
+        }
 
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Visual Custom Productivity Suite Engine")
-        self.root.geometry("1000x650")
-        self.root.configure(bg="#1e1f29")
+        .shuffle-check input {
+            cursor: pointer;
+        }
 
-    
-        instruction_frame = tk.Frame(self.root, bg="#282a36", height=40)
-        instruction_frame.pack(fill="x", side="top")
-        lbl = tk.Label(
-            instruction_frame,
-            text="💻 Local Dev Dashboard | Drag header components to rearrange workspace freely.",
-            fg="#f8f8f2",
-            bg="#282a36",
-            font=("Arial", 10, "italic"),
-        )
-        lbl.pack(pady=10)      
-        self.workspace = tk.Frame(self.root, bg="#1e1f29")
+        /* Plant Widget */
+        .plant-widget {
+            background: #282a36 !important;
+        }
+
+        .plant-widget .widget-content {
+            background: #282a36 !important;
+            display: flex;
+            gap: 10px;
+        }
+
+        .plant-left {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .plant-right {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .plant-canvas {
+            background: #1e1f29;
+            border: 1px solid #44475a;
+            width: 160px;
+            height: 180px;
+        }
+
+        .plant-status {
+            color: #50fa7b;
+            font-weight: bold;
+            font-size: 10px;
+            text-align: center;
+        }
+
+        .plant-xp {
+            color: #ff79c6;
+            font-size: 9px;
+            text-align: center;
+        }
+
+        .plant-title {
+            color: #f8f8f2;
+            font-weight: bold;
+            font-size: 10px;
+        }
+
+        .habit-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: #f8f8f2;
+            font-size: 10px;
+            cursor: pointer;
+            padding: 3px 0;
+        }
+
+        .habit-item input {
+            cursor: pointer;
+            width: 14px;
+            height: 14px;
+            accent-color: #50fa7b;
+        }
+
+        .plant-ctrl-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            width: 100%;
+        }
+
+        .plant-btn {
+            background: #44475a;
+            color: #fff;
+            border: none;
+            padding: 4px 6px;
+            border-radius: 2px;
+            cursor: pointer;
+            font-size: 9px;
+        }
+
+        .plant-btn:hover {
+            background: #555;
+        }
+
+        .plant-btn.randomize {
+            background: #ffb86b;
+            color: #111;
+        }
+
+        .plant-btn.theme {
+            background: #8be9fd;
+            color: #111;
+        }
+    </style>
+</head>
+<body>
+    <div id="dashboard"></div>
+    <div class="help-text">
+        Right-click widgets for options. Drag by title bar. Double-click sticky to edit. Use controls to interact.
+    </div>
+
+    <script>
+        class DraggableWidget {
+            constructor(parent, config = {}) {
+                this.parent = parent;
+                this.title = config.title || "widget";
+                this.bgColor = config.bgColor || "#2e3138";
+                this.x = config.x || 50;
+                this.y = config.y || 50;
+                this.width = config.width || 220;
+                this.height = config.height || 160;
+                this._locked = false;
+                this._isDragging = false;
+                this._isResizing = false;
+                this._dragStart = { x: 0, y: 0 };
+                this._resizeStart = { x: 0, y: 0 };
+                this._origSize = { w: 0, h: 0 };
+
+                this.element = document.createElement("div");
+                this.element.className = "draggable-widget";
+                this.element.style.left = this.x + "px";
+                this.element.style.top = this.y + "px";
+                this.element.style.width = this.width + "px";
+                this.element.style.height = this.height + "px";
+                this.element.style.background = this.bgColor;
+
+                this.header = document.createElement("div");
+                this.header.className = "widget-header";
+                this.header.innerHTML = `<span class="widget-title">${this.title}</span>`;
+
+                this.contentFrame = document.createElement("div");
+                this.contentFrame.className = "widget-content";
+                this.contentFrame.style.background = this.bgColor;
+
+                this.resizeHandle = document.createElement("div");
+                this.resizeHandle.className = "resize-handle";
+
+                this.element.appendChild(this.header);
+                this.element.appendChild(this.contentFrame);
+                this.element.appendChild(this.resizeHandle);
+                this.parent.appendChild(this.element);
+
+                this.setupEventListeners();
+            }
+
+            setupEventListeners() {
+                this.header.addEventListener("mousedown", (e) => this.startDrag(e));
+                this.header.addEventListener("contextmenu", (e) => this.showContextMenu(e));
+                this.resizeHandle.addEventListener("mousedown", (e) => this.startResize(e));
+            }
+
+            startDrag(e) {
+                if (this._locked || e.button !== 0) return;
+                this._isDragging = true;
+                this._dragStart = { x: e.clientX - this.element.offsetLeft, y: e.clientY - this.element.offsetTop };
+                this.element.style.zIndex = 999;
+                document.addEventListener("mousemove", (e) => this.onDrag(e));
+                document.addEventListener("mouseup", () => this.stopDrag());
+            }
+
+            onDrag(e) {
+                if (!this._isDragging) return;
+                let x = e.clientX - this._dragStart.x;
+                let y = e.clientY - this._dragStart.y;
+                const dashboard = document.getElementById("dashboard");
+                x = Math.max(0, Math.min(x, dashboard.offsetWidth - this.element.offsetWidth));
+                y = Math.max(0, Math.min(y, dashboard.offsetHeight - this.element.offsetHeight));
+                this.element.style.left = x + "px";
+                this.element.style.top = y + "px";
+            }
+
+            stopDrag() {
+                this._isDragging = false;
+                document.removeEventListener("mousemove", (e) => this.onDrag(e));
+                document.removeEventListener("mouseup", () => this.stopDrag());
+            }
+
+            startResize(e) {
+                if (this._locked || e.button !== 0) return;
+                this._isResizing = true;
+                this._resizeStart = { x: e.clientX, y: e.clientY };
+                this._origSize = { w: this.element.offsetWidth, h: this.element.offsetHeight };
+                document.addEventListener("mousemove", (e) => this.doResize(e));
+                document.addEventListener("mouseup", () => this.stopResize());
+            }
+
+            doResize(e) {
+                if (!this._isResizing) return;
+                const dx = e.clientX - this._resizeStart.x;
+                const dy = e.clientY - this._resizeStart.y;
+                const newW = Math.max(80, this._origSize.w + dx);
+                const newH = Math.max(50, this._origSize.h + dy);
+                this.element.style.width = newW + "px";
+                this.element.style.height = newH + "px";
+            }
+
+            stopResize() {
+                this._isResizing = false;
+                document.removeEventListener("mousemove", (e) => this.doResize(e));
+                document.removeEventListener("mouseup", () => this.stopResize());
+            }
+
+            showContextMenu(e) {
+                e.preventDefault();
+                const menu = document.createElement("div");
+                menu.className = "context-menu";
+                menu.style.left = e.clientX + "px";
+                menu.style.top = e.clientY + "px";
+
+                const items = [
+                    { label: "Duplicate", fn: () => this.duplicate() },
+                    { label: "Edit", fn: () => this.contextEdit() },
+                    { label: "Change Color", fn: () => this.contextColor() },
+                    { label: "separator", fn: null },
+                    { label: "Lock/Unlock", fn: () => this.toggleLock() },
+                    { label: "Delete", fn: () => this.delete() },
+                ];
+
+                items.forEach((item) => {
+                    if (item.label === "separator") {
+                        const sep = document.createElement("div");
+                        sep.className = "context-menu-separator";
+                        menu.appendChild(sep);
+                    } else {
+                        const div = document.createElement("div");
+                        div.className = "context-menu-item";
+                        div.textContent = item.label;
+                        div.addEventListener("click", () => {
+                            item.fn();
+                            menu.remove();
+                        });
+                        menu.appendChild(div);
+                    }
+                });
+
+                document.body.appendChild(menu);
+                setTimeout(() => document.addEventListener("click", () => menu.remove(), { once: true }), 0);
+            }
+
+            duplicate() {
+                const cls = this.constructor;
+                const newWidget = new cls(this.parent, {
+                    x: this.x + 20,
+                    y: this.y + 20,
+                });
+            }
+
+            delete() {
+                this.element.remove();
+            }
+
+            toggleLock() {
+                this._locked = !this._locked;
+                const titleSpan = this.header.querySelector(".widget-title");
+                const indicator = this._locked ? "🔒" : "🔓";
+                const baseTitle = this.title.replace(/🔒|🔓/g, "").trim();
+                titleSpan.textContent = `${indicator} ${baseTitle}`;
+                this.header.classList.toggle("locked", this._locked);
+            }
+
+            contextEdit() {}
+            contextColor() {
+                const color = prompt("Enter color (hex or name):", this.bgColor);
+                if (color) {
+                    this.bgColor = color;
+                    this.element.style.background = color;
+                    this.contentFrame.style.background = color;
+                }
+            }
+        }
+
+        class StickyNote extends DraggableWidget {
+            constructor(parent, config = {}) {
+                config.title = config.title || "📌 Sticky Note";
+                config.bgColor = config.bgColor || "#fff275";
+                super(parent, config);
+                this.text = config.text || "Double-click to edit note...";
+                this.palette = ["#fff275", "#ffd1dc", "#c8ffd4", "#d0e8ff", "#fff0b3", "#e0d030", "#a8a8ff", "#ffffff"];
+                this.element.classList.add("sticky-note");
+
+                const colorBtn = document.createElement("div");
+                colorBtn.className = "color-btn";
+                colorBtn.style.background = "#e0d030";
+                colorBtn.addEventListener("click", (e) => this.showPalette(e));
+                colorBtn.addEventListener("contextmenu", (e) => {
+                    e.preventDefault();
+                    this.contextColor();
+                });
+                this.header.appendChild(colorBtn);
+
+                const textLabel = document.createElement("div");
+                textLabel.textContent = this.text;
+                textLabel.style.whiteSpace = "pre-wrap";
+                textLabel.style.wordWrap = "break-word";
+                textLabel.addEventListener("dblclick", () => this.editText());
+                this.contentFrame.appendChild(textLabel);
+                this.textLabel = textLabel;
+            }
+
+            showPalette(e) {
+                const menu = document.createElement("div");
+                menu.className = "color-palette";
+                menu.style.left = e.clientX + "px";
+                menu.style.top = e.clientY + "px";
+
+                this.palette.forEach((color) => {
+                    const btn = document.createElement("div");
+                    btn.className = "palette-color";
+                    btn.style.background = color;
+                    btn.addEventListener("click", () => {
+                        this.applyColor(color);
+                        menu.remove();
+                    });
+                    menu.appendChild(btn);
+                });
+
+                document.body.appendChild(menu);
+                setTimeout(() => document.addEventListener("click", () => menu.remove(), { once: true }), 0);
+            }
+
+            editText() {
+                const newText = prompt("Enter note text:", this.textLabel.textContent);
+                if (newText !== null) {
+                    this.textLabel.textContent = newText;
+                }
+            }
+
+            applyColor(color) {
+                this.bgColor = color;
+                this.element.style.background = color;
+                this.contentFrame.style.background = color;
+                this.textLabel.style.background = color;
+            }
+
+            contextColor() {
+                const color = prompt("Pick Sticky Note Color:", this.bgColor);
+                if (color) {
+                    this.applyColor(color);
+                }
+            }
+        }
+
+        class PlaylistWidget extends DraggableWidget {
+            constructor(parent, config = {}) {
+                config.title = config.title || "🎵 Playlist Controller";
+                config.bgColor = config.bgColor || "#181818";
+                config.width = config.width || 360;
+                config.height = config.height || 180;
+                super(parent, config);
+                this.element.classList.add("playlist-widget");
+                this.contentFrame.style.background = "#181818";
+
+                this.tracks = ["Lo-Fi Beats For Coding", "Neon Nights", "Rainy Window", "Sunset Drive", "Calm Focus", "Midnight Loop"];
+                this.currentIndex = 0;
+                this.isPlaying = false;
+
+                const header = document.createElement("div");
+                header.className = "playlist-header";
+                header.textContent = this.tracks[this.currentIndex];
+                this.contentFrame.appendChild(header);
+
+                const status = document.createElement("div");
+                status.className = "playlist-status";
+                status.textContent = "Status: Stopped";
+                this.contentFrame.appendChild(status);
+                this.statusLabel = status;
+
+                const listContainer = document.createElement("div");
+                listContainer.style.flex = "1";
+                listContainer.style.display = "flex";
+                listContainer.style.gap = "8px";
+
+                const listFrame = document.createElement("div");
+                listFrame.style.flex = "1";
+
+                const listbox = document.createElement("div");
+                listbox.className = "playlist-list";
+                this.tracks.forEach((track, idx) => {
+                    const item = document.createElement("div");
+                    item.className = "playlist-item";
+                    if (idx === 0) item.classList.add("selected");
+                    item.textContent = track;
+                    item.addEventListener("click", () => this.selectTrack(idx));
+                    listbox.appendChild(item);
+                });
+                listFrame.appendChild(listbox);
+                listContainer.appendChild(listFrame);
+                this.listbox = listbox;
+
+                const ctrl = document.createElement("div");
+                ctrl.className = "playlist-controls";
+
+                const buttons = document.createElement("div");
+                buttons.className = "playlist-buttons";
+                ["⏮", "▶", "⏸", "⏭"].forEach((emoji, idx) => {
+                    const btn = document.createElement("button");
+                    btn.className = "playlist-btn";
+                    btn.textContent = emoji;
+                    if (idx === 1 || idx === 2) btn.addEventListener("click", () => this.togglePlay());
+                    if (idx === 0) btn.addEventListener("click", () => this.prevTrack());
+                    if (idx === 3) btn.addEventListener("click", () => this.nextTrack());
+                    buttons.appendChild(btn);
+                });
+                ctrl.appendChild(buttons);
+
+                const volContainer = document.createElement("div");
+                volContainer.className = "volume-container";
+                const volLabel = document.createElement("div");
+                volLabel.className = "volume-label";
+                volLabel.textContent = "Vol";
+                const slider = document.createElement("input");
+                slider.type = "range";
+                slider.className = "volume-slider";
+                slider.min = "0";
+                slider.max = "100";
+                slider.value = "70";
+                volContainer.appendChild(volLabel);
+                volContainer.appendChild(slider);
+                ctrl.appendChild(volContainer);
+
+                const shuffleLabel = document.createElement("label");
+                shuffleLabel.className = "shuffle-check";
+                const shuffleInput = document.createElement("input");
+                shuffleInput.type = "checkbox";
+                shuffleLabel.appendChild(shuffleInput);
+                shuffleLabel.appendChild(document.createTextNode("Shuffle"));
+                ctrl.appendChild(shuffleLabel);
+                this.shuffleInput = shuffleInput;
+
+                listContainer.appendChild(ctrl);
+                this.contentFrame.appendChild(listContainer);
+            }
+
+            selectTrack(idx) {
+                this.currentIndex = idx;
+                this.updateStatus();
+                const items = this.listbox.querySelectorAll(".playlist-item");
+                items.forEach((item, i) => item.classList.toggle("selected", i === idx));
+            }
+
+            updateStatus() {
+                const status = this.isPlaying ? "(Playing)" : "(Stopped)";
+                this.statusLabel.textContent = `Now: ${this.tracks[this.currentIndex]} ${status}`;
+            }
+
+            togglePlay() {
+                this.isPlaying = !this.isPlaying;
+                this.updateStatus();
+            }
+
+            nextTrack() {
+                if (this.shuffleInput.checked) {
+                    this.currentIndex = Math.floor(Math.random() * this.tracks.length);
+                } else {
+                    this.currentIndex = (this.currentIndex + 1) % this.tracks.length;
+                }
+                this.selectTrack(this.currentIndex);
+            }
+
+            prevTrack() {
+                if (this.shuffleInput.checked) {
+                    this.currentIndex = Math.floor(Math.random() * this.tracks.length);
+                } else {
+                    this.currentIndex = (this.currentIndex - 1 + this.tracks.length) % this.tracks.length;
+                }
+                this.selectTrack(this.currentIndex);
+            }
+        }
+
+        class PixelPlantTrackerWidget extends DraggableWidget {
+            constructor(parent, config = {}) {
+                config.title = config.title || "🌱 Habit Matrix & Evolution Engine";
+                config.bgColor = config.bgColor || "#282a36";
+                config.width = config.width || 420;
+                config.height = config.height || 360;
+                super(parent, config);
+                this.element.classList.add("plant-widget");
+                this.contentFrame.style.background = "#282a36";
+
+                this.xp = 0;
+                this.habits = ["Complete Daily Code Focus", "Drink 3L Water", "Gym Session"];
+                this.habitCheckboxes = [];
+                this.leafColor = "#25c281";
+                this.stemColor = "#50fa7b";
+                this.bloomColor = "#ff79c6";
+
+                const left = document.createElement("div");
+                left.className = "plant-left";
+
+                const title = document.createElement("div");
+                title.className = "plant-title";
+                title.textContent = "Daily Goals Checklist";
+                left.appendChild(title);
+
+                this.habits.forEach((habit) => {
+                    const label = document.createElement("label");
+                    label.className = "habit-item";
+                    const checkbox = document.createElement("input");
+                    checkbox.type = "checkbox";
+                    checkbox.addEventListener("change", () => this.habitToggled());
+                    label.appendChild(checkbox);
+                    label.appendChild(document.createTextNode(habit));
+                    left.appendChild(label);
+                    this.habitCheckboxes.push(checkbox);
+                });
+
+                const ctrlBtns = document.createElement("div");
+                ctrlBtns.className = "plant-ctrl-buttons";
+
+                const resetBtn = document.createElement("button");
+                resetBtn.className = "plant-btn";
+                resetBtn.textContent = "Reset XP";
+                resetBtn.addEventListener("click", () => this.resetXp());
+                ctrlBtns.appendChild(resetBtn);
+
+                const randomBtn = document.createElement("button");
+                randomBtn.className = "plant-btn randomize";
+                randomBtn.textContent = "Randomize Colors";
+                randomBtn.addEventListener("click", () => this.randomizeColors());
+                ctrlBtns.appendChild(randomBtn);
+
+                const themeBtn = document.createElement("button");
+                themeBtn.className = "plant-btn theme";
+                themeBtn.textContent = "Pick Theme";
+                themeBtn.addEventListener("click", () => this.pickTheme());
+                ctrlBtns.appendChild(themeBtn);
+
+                left.appendChild(ctrlBtns);
+                this.contentFrame.appendChild(left);
+
+                const right = document.createElement("div");
+                right.className = "plant-right";
+
+                const canvas = document.createElement("canvas");
+                canvas.className = "plant-canvas";
+                canvas.width = 160;
+                canvas.height = 180;
+                right.appendChild(canvas);
+                this.canvas = canvas;
+
+                const statusLabel = document.createElement("div");
+                statusLabel.className = "plant-status";
+                statusLabel.textContent = "Level 1: Tiny Sprout";
+                right.appendChild(statusLabel);
+                this.statusLabel = statusLabel;
+
+                const xpLabel = document.createElement("div");
+                xpLabel.className = "plant-xp";
+                xpLabel.textContent = "Growth XP: 0";
+                right.appendChild(xpLabel);
+                this.xpLabel = xpLabel;
+
+                this.contentFrame.appendChild(right);
+                this.renderPixelPlant();
+            }
+
+            habitToggled() {
+                this.xp = this.habitCheckboxes.filter((cb) => cb.checked).length * 10;
+                this.xpLabel.textContent = `Growth XP: ${this.xp}`;
+                this.updateLevelLabel();
+                this.renderPixelPlant();
+            }
+
+            updateLevelLabel() {
+                let level = "Level 1: Tiny Sprout";
+                if (this.xp >= 40) level = "Level 3: Flourishing Plant";
+                else if (this.xp >= 20) level = "Level 2: Growing Seedling";
+                this.statusLabel.textContent = level;
+            }
+
+            renderPixelPlant() {
+                const ctx = this.canvas.getContext("2d");
+                ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+                const baseX = 80;
+                const baseY = 140;
+                const height = 1 + Math.floor(this.xp / 10);
+                const maxWidth = 7;
+                const width = Math.min(maxWidth, 1 + Math.floor(this.xp / 15));
+                const pixelSize = 12;
+
+                // Stem
+                for (let i = 0; i < height; i++) {
+                    const x0 = baseX - pixelSize / 2;
+                    const y0 = baseY - (i + 1) * pixelSize;
+                    ctx.fillStyle = this.stemColor;
+                    ctx.fillRect(x0, y0, pixelSize, pixelSize);
+                }
+
+                // Leaves
+                for (let row = 0; row < width; row++) {
+                    const x0 = baseX - (row + 2) * pixelSize;
+                    const y0 = baseY - (height + row) * pixelSize;
+                    ctx.fillStyle = this.leafColor;
+                    ctx.fillRect(x0, y0, pixelSize, pixelSize);
+
+                    const x1 = baseX + pixelSize + row * pixelSize;
+                    const y1 = y0;
+                    ctx.fillRect(x1, y1, pixelSize, pixelSize);
+                }
+
+                // Bloom
+                ctx.fillStyle = this.bloomColor;
+                if (this.xp >= 30) {
+                    ctx.beginPath();
+                    ctx.arc(baseX, baseY - height * pixelSize - 16, 14, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (this.xp >= 10) {
+                    ctx.beginPath();
+                    ctx.arc(baseX, baseY - height * pixelSize - 13, 10, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            resetXp() {
+                this.habitCheckboxes.forEach((cb) => (cb.checked = false));
+                this.xp = 0;
+                this.xpLabel.textContent = "Growth XP: 0";
+                this.updateLevelLabel();
+                this.renderPixelPlant();
+            }
+
+            randomizeColors() {
+                const leafColors = ["#25c281", "#40c4ff", "#7bed9f", "#8be9fd", "#c8ffd4"];
+                const stemColors = ["#50fa7b", "#32a852", "#2ecc71", "#7ef5a6"];
+                const bloomColors = ["#ff79c6", "#ffb86b", "#ffd1dc", "#ffa8a8"];
+
+                this.leafColor = leafColors[Math.floor(Math.random() * leafColors.length)];
+                this.stemColor = stemColors[Math.floor(Math.random() * stemColors.length)];
+                this.bloomColor = bloomColors[Math.floor(Math.random() * bloomColors.length)];
+
+                this.renderPixelPlant();
+            }
+
+            pickTheme() {
+                const leaf = prompt("Pick Leaf Color (hex):", this.leafColor);
+                if (leaf) this.leafColor = leaf;
+                const stem = prompt("Pick Stem Color (hex):", this.stemColor);
+                if (stem) this.stemColor = stem;
+                const bloom = prompt("Pick Bloom Color (hex):", this.bloomColor);
+                if (bloom) this.bloomColor = bloom;
+                this.renderPixelPlant();
+            }
+        }
+
+        // Initialize
+        const dashboard = document.getElementById("dashboard");
+        new StickyNote(dashboard, { text: "Plan sprint tasks\n- Fix bugs\n- Review PRs", x: 30, y: 30 });
+        new StickyNote(dashboard, { text: "Buy groceries:\n- Milk\n- Eggs\n- Bread", x: 300, y: 30 });
+        new PlaylistWidget(dashboard, { x: 30, y: 240 });
+        new PixelPlantTrackerWidget(dashboard, { x: 420, y: 30 });
+    </script>
+</body>
+</html>
