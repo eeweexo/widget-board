@@ -8,7 +8,7 @@ import copy
 class DraggableWidget(tk.Frame):
     """Base class for building custom drag and drop dashboard frames."""
 
-def __init__(self, parent, title="widget", bg_color="#2e3138", **kwargs):
+    def __init__(self, parent, title="widget", bg_color="#2e3138", **kwargs):
         super().__init__(parent, bg=bg_color, bd=2, relief="groove", **kwargs)
         self._locked = False
         self.drag_handle = tk.Frame(self, bg="#1e2022", height=25)
@@ -318,7 +318,19 @@ class PixelPlantTrackerWidget(DraggableWidget):
         title.pack(anchor="nw")
         for habit in self.habits:
             var = tk.IntVar(value=0)
-            chk = tk.Checkbutton(self.left_frame, text=habit, variable=var, onvalue=1, offvalue=0, fg="#f8f8f2", bg="#282a36", activebackground="#282a36", selectcolor="#44475a", anchor="w", command=self._habit_toggled, wraplength=180, justify="left")
+            chk = tk.Checkbutton(
+                self.left_frame,
+                text=habit,
+                variable=var,
+                onvalue=1,
+                offvalue=0,
+                fg="#f8f8f2",
+                bg="#282a36",
+                activebackground="#282a36",
+                selectcolor="#44475a",
+                anchor="w",
+                command=self._habit_toggled,
+            )
             chk.pack(fill="x", pady=4, anchor="w")
             self.habit_vars.append(var)
         ctrl = tk.Frame(self.left_frame, bg="#282a36")
